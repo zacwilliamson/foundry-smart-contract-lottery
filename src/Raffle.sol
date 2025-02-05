@@ -12,15 +12,20 @@ contract Raffle {
     /* Errors */
     error Raffle__NotEnoughEthSent();
 
-    uint256 private immutable i_entranceFee;
     // 'payable' because one of the participants will win the raffle
+    uint256 private immutable i_entranceFee;
+    // @dev duration of lottery in seconds
+    uint256 private immutable i_interval;
     address payable[] private s_players;
+    uint256 private s_lastTimeStamp;
 
     // events are a way for smart contracts to communicate with the outside world, primarily with the front-end.
     event EnteredRaffle(address indexed player);
 
-    constructor(uint256 entranceFee) {
+    constructor(uint256 entranceFee, uint256 interval) {
         i_entranceFee = entranceFee;
+        i_interval = interval;
+        s_lastTimeStamp = block.timestamp;
     }
 
     // anytime we update storage, we want to emit an event
@@ -30,7 +35,10 @@ contract Raffle {
         emit EnteredRaffle(msg.sender);
     }
 
-    function pickWinner() public {}
+    function pickWinner() external {
+        //check to see if enough time has passed
+        if (block.timestamp - s_lastTimeStamp < i_interval) revert();
+    }
 
     /** Getter Function */
 
