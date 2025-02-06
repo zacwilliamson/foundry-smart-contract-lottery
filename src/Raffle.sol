@@ -72,9 +72,27 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit EnteredRaffle(msg.sender);
     }
 
-    function pickWinner() external {
-        //check to see if enough time has passed
-        if (block.timestamp - s_lastTimeStamp < i_interval) revert();
+    // Chainlink automation checker
+    function checkUpkeep(
+        bytes memory /* checkData */
+    ) public view returns (bool upkeepNeeded, bytes memory /* performData */) {
+        bool timeHasPassed = ((block.timestamp - s_lastTimeStamp) >=
+            i_interval);
+        bool isOpen = s_raffleState == RaffleState.OPEN;
+        bool hasBalance = address(this).balance > 0;
+        bool hasPlayers = s_players.length > 0;
+        upkeepNeeded = timeHasPassed && isOpen && hasBalance && hasPlayers;
+
+        return (upkeepNeeded, hex"");
+    }
+
+    // Selects winner automatically once the interval has passed
+    function performUpkeep(bytes calldata /* performData */) external {
+        // check to see if enough time has passed
+        (bool upkeepNeeded, ) = checkUpkeep("");
+        if (!upkeepNeeded) {
+            revert();
+        }
 
         s_raffleState = RaffleState.CLOSED;
         VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
@@ -97,18 +115,22 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 requestId,
         uint256[] calldata randomWords
     ) internal override {
+        /* CHECKS */
+        /* EFFECTS */
         // we use the modulo operator to always get an index between 0 and length of players
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
+        s_raffleState = RaffleState.OPEN;
         s_players = new address payable[](0);
         s_lastTimeStamp = block.timestamp;
-        s_raffleState = RaffleState.OPEN;
+        emit PickedWinner(winner);
+
+        /* INTERACTIONS */
         (bool success, ) = winner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffel__TransferFailed();
         }
-        emit PickedWinner(winner);
     }
 
     /**
@@ -144,3 +166,18 @@ contract Raffle is VRFConsumerBaseV2Plus {
 // private
 
 // view & pure functions
+
+// CEI Pattern - Solidity best practice enhancing security against reentrancy attacks
+// function coolFunction() public {
+//     // Checks - Requires, conditionals
+//     checkX();
+//     checkY();
+
+//     // Effects - Internal contract state updates
+//     updateStateM();
+
+//     // Interactions - External contract state updates.
+//     sendA();
+//     callB();
+
+// }
