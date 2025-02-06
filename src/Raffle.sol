@@ -17,7 +17,15 @@ contract Raffle is VRFConsumerBaseV2Plus {
     /* Errors */
     error Raffle__NotEnoughEthSent();
     error Raffel__TransferFailed();
+    error Raffle__NotOpen();
 
+    /* Type Declarations */
+    enum RaffleState {
+        OPEN,
+        CLOSED
+    }
+
+    /* State Variables */
     uint16 private constant REQUEST_CONFIRMATIONS = 3;
     uint32 private constant NUM_WORDS = 1;
     // 'payable' because one of the participants will win the raffle
@@ -30,9 +38,11 @@ contract Raffle is VRFConsumerBaseV2Plus {
     address payable[] private s_players;
     address payable private s_recentWinner;
     uint256 private s_lastTimeStamp;
+    RaffleState private s_raffleState;
 
     // events are a way for smart contracts to communicate with the outside world, primarily with the front-end.
     event EnteredRaffle(address indexed player);
+    event PickedWinner(address winner);
 
     constructor(
         uint256 entranceFee,
@@ -44,15 +54,20 @@ contract Raffle is VRFConsumerBaseV2Plus {
     ) VRFConsumerBaseV2Plus(vrfCoordinator) {
         i_entranceFee = entranceFee;
         i_interval = interval;
-        s_lastTimeStamp = block.timestamp;
         i_keyHash = gasLane;
         i_subscriptionId = subscriptionId;
         i_callbackGasLimit = callbackGasLimit;
+
+        s_lastTimeStamp = block.timestamp;
+        s_raffleState = RaffleState.OPEN;
     }
 
     // anytime we update storage, we want to emit an event
     function enterRaffle() external payable {
         if (msg.value < i_entranceFee) revert Raffle__NotEnoughEthSent();
+
+        if (s_raffleState != RaffleState.OPEN) revert Raffle__NotOpen();
+
         s_players.push(payable(msg.sender));
         emit EnteredRaffle(msg.sender);
     }
@@ -61,6 +76,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         //check to see if enough time has passed
         if (block.timestamp - s_lastTimeStamp < i_interval) revert();
 
+        s_raffleState = RaffleState.CLOSED;
         VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
             .RandomWordsRequest({
                 keyHash: i_keyHash,
@@ -85,10 +101,14 @@ contract Raffle is VRFConsumerBaseV2Plus {
         uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable winner = s_players[indexOfWinner];
         s_recentWinner = winner;
+        s_players = new address payable[](0);
+        s_lastTimeStamp = block.timestamp;
+        s_raffleState = RaffleState.OPEN;
         (bool success, ) = winner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffel__TransferFailed();
         }
+        emit PickedWinner(winner);
     }
 
     /**
