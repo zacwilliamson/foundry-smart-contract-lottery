@@ -61,18 +61,6 @@ contract HelperConfig is CodeConstants, Script {
             });
     }
 
-    function getLocalConfig() public pure returns (NetworkConfig memory) {
-        return
-            NetworkConfig({
-                entranceFee: 0.01 ether,
-                interval: 30, // 30 seconds
-                vrfCoordinator: address(0),
-                gasLane: "",
-                callbackGasLimit: 500000,
-                subscriptionId: 0
-            });
-    }
-
     function getOrCreateAnvilEthConfig() public returns (NetworkConfig memory) {
         // Check to see if we set an active network config
         if (localNetworkConfig.vrfCoordinator != address(0)) {
