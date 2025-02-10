@@ -77,7 +77,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         emit EnteredRaffle(msg.sender);
     }
 
-    // Chainlink automation checker
+    // Chainlink automation checker, node runs this function periodically to check if time is up
     function checkUpkeep(
         bytes memory /* checkData */
     ) public view returns (bool upkeepNeeded, bytes memory /* performData */) {
