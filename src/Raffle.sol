@@ -48,6 +48,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     // events are a way for smart contracts to communicate with the outside world, primarily with the front-end.
     event EnteredRaffle(address indexed player);
     event PickedWinner(address winner);
+    event RequestedRaffleWinner(uint256 indexed requestId);
 
     constructor(
         uint256 entranceFee,
@@ -117,7 +118,10 @@ contract Raffle is VRFConsumerBaseV2Plus {
                 )
             });
 
-        s_vrfCoordinator.requestRandomWords(request);
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
+
+        // Redundant be cause chainlink vrf is also emiting the request id. here for testing purposes
+        emit RequestedRaffleWinner(requestId);
     }
 
     function fulfillRandomWords(
