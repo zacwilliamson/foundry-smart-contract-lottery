@@ -9,8 +9,9 @@ import {HelperConfig} from "../../script/HelperConfig.s.sol";
 import {Vm} from "forge-std/Vm.sol";
 // import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 import {VRFCoordinatorV2PlusMock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2PlusMock.sol";
+import {CodeConstants} from "../../script/HelperConfig.s.sol";
 
-contract RaffleTest is Test {
+contract RaffleTest is Test, CodeConstants {
     Raffle public raffle;
     HelperConfig public helperConfig;
 
@@ -167,10 +168,20 @@ contract RaffleTest is Test {
     }
 
     /* FULLFILL RANDOM WORDS */
+
+    // Need to skip fork because we can use the actual chainlink VRF coordinator by the chainlink nodes, not the mock coordinator that we created
+
+    modifier skipFork() {
+        if (block.chainid != LOCAL_CHAIN_ID) {
+            return;
+        }
+        _;
+    }
+
     // Fuzz Test
     function testFulfillRandomWordsCanOnlyBeCalledAfterPerformUpkeep(
         uint256 randomRequestId
-    ) public raffleEntered {
+    ) public raffleEntered skipFork {
         vm.expectRevert("nonexistent request");
         VRFCoordinatorV2PlusMock(vrfCoordinator).fulfillRandomWords(
             randomRequestId,
@@ -181,6 +192,7 @@ contract RaffleTest is Test {
     function testFulfillRandomWordsPicksAWinnnerResetsAndSendsMoney()
         public
         raffleEntered
+        skipFork
     {
         uint256 additionalEntrants = 3; // 4 total
         uint256 startingIndex = 1;
